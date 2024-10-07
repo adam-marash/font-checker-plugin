@@ -2,8 +2,8 @@
 /*
 Plugin Name: Font Discovery Plugin
 Plugin URI: https://github.com/ediblesites/font-checker-plugin
-Description: Discovers fonts used on a given website and stores the information.
-Version: 1.0
+Description: Discovers fonts used on a given website and stores the information, with live progress updates.
+Version: 1.2
 Author: Edible Sites
 Author URI: https://ediblesites.com
 License: GPL-2.0+
@@ -42,13 +42,33 @@ function font_discovery_form_shortcode() {
         <input type="url" id="website-url" name="website-url" required placeholder="Enter website URL">
         <button type="submit">Discover Fonts</button>
     </form>
+    <div id="font-discovery-progress"></div>
     <div id="font-discovery-result"></div>
 
     <script>
     jQuery(document).ready(function($) {
+        var progressInterval;
+        
         $('#font-discovery-form').on('submit', function(e) {
             e.preventDefault();
             var url = $('#website-url').val();
+            $('#font-discovery-progress').html('<p>Starting font discovery process...</p>');
+            $('#font-discovery-result').html('');
+            
+            // Start progress updates
+            progressInterval = setInterval(function() {
+                $.ajax({
+                    url: '<?php echo admin_url('admin-ajax.php'); ?>',
+                    type: 'POST',
+                    data: {
+                        action: 'get_discovery_progress'
+                    },
+                    success: function(response) {
+                        $('#font-discovery-progress').html(response);
+                    }
+                });
+            }, 1000);
+            
             $.ajax({
                 url: '<?php echo admin_url('admin-ajax.php'); ?>',
                 type: 'POST',
@@ -57,7 +77,13 @@ function font_discovery_form_shortcode() {
                     url: url
                 },
                 success: function(response) {
+                    clearInterval(progressInterval);
                     $('#font-discovery-result').html(response);
+                    $('#font-discovery-progress').html('<p>Font discovery process completed.</p>');
+                },
+                error: function() {
+                    clearInterval(progressInterval);
+                    $('#font-discovery-progress').html('<p>An error occurred during the font discovery process.</p>');
                 }
             });
         });
@@ -73,6 +99,7 @@ add_action('wp_ajax_nopriv_discover_fonts', 'discover_fonts_ajax_handler');
 
 function discover_fonts_ajax_handler() {
     $url = $_POST['url'];
+    update_option('font_discovery_progress', 'Starting font discovery for ' . $url);
     $fonts = discover_fonts($url);
     
     if ($fonts) {
@@ -82,6 +109,7 @@ function discover_fonts_ajax_handler() {
         }
         $response .= '</ul>';
 
+        update_option('font_discovery_progress', 'Storing site information...');
         // Create a new 'site' post
         $post_id = wp_insert_post(array(
             'post_title' => $url,
@@ -99,7 +127,18 @@ function discover_fonts_ajax_handler() {
         $response = '<p>No fonts discovered or unable to access the site.</p>';
     }
 
+    update_option('font_discovery_progress', '');
     echo $response;
+    wp_die();
+}
+
+// AJAX handler for progress updates
+add_action('wp_ajax_get_discovery_progress', 'get_discovery_progress_ajax_handler');
+add_action('wp_ajax_nopriv_get_discovery_progress', 'get_discovery_progress_ajax_handler');
+
+function get_discovery_progress_ajax_handler() {
+    $progress = get_option('font_discovery_progress', '');
+    echo $progress ? '<p>' . esc_html($progress) . '</p>' : '';
     wp_die();
 }
 
@@ -107,15 +146,19 @@ function discover_fonts_ajax_handler() {
 function discover_fonts($url) {
     $fonts = array();
     
+    update_option('font_discovery_progress', 'Fetching main HTML content from ' . $url);
     // Get the main HTML content
     $html = fetch_url_content($url);
     if ($html === false) {
+        update_option('font_discovery_progress', 'Failed to fetch HTML content from ' . $url);
         return false;
     }
 
+    update_option('font_discovery_progress', 'Extracting fonts from main HTML');
     // Extract fonts from the main HTML
     $fonts = array_merge($fonts, extract_fonts_from_content($html));
 
+    update_option('font_discovery_progress', 'Searching for linked stylesheets');
     // Find all linked stylesheets
     preg_match_all('/<link[^>]+?href=([\'"])(.*?)\1[^>]*?rel=([\'"])stylesheet\3/i', $html, $matches);
     
@@ -124,14 +167,18 @@ function discover_fonts($url) {
             // Make sure we have an absolute URL
             $stylesheet_url = url_to_absolute($url, $stylesheet_url);
             
+            update_option('font_discovery_progress', 'Fetching and parsing stylesheet: ' . $stylesheet_url);
             // Fetch and parse each stylesheet
             $css_content = fetch_url_content($stylesheet_url);
             if ($css_content !== false) {
                 $fonts = array_merge($fonts, extract_fonts_from_content($css_content));
+            } else {
+                update_option('font_discovery_progress', 'Failed to fetch stylesheet: ' . $stylesheet_url);
             }
         }
     }
 
+    update_option('font_discovery_progress', 'Font discovery completed. Processing results...');
     return array_unique($fonts);
 }
 
