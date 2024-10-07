@@ -1,14 +1,14 @@
 <?php
 /*
 Plugin Name: Font Discovery Plugin
-Plugin URI: https://github.com/ediblesites/font-checker-plugin
+Plugin URI: https://github.com/adam-marash/font-checker-plugin
 Description: Discovers fonts used on a given website and stores the information, with live progress updates.
 Version: 1.2
 Author: Edible Sites
 Author URI: https://ediblesites.com
 License: GPL-2.0+
 License URI: http://www.gnu.org/licenses/gpl-2.0.txt
-GitHub Plugin URI: ediblesites/font-checker-plugin
+GitHub Plugin URI: adam-marash/font-checker-plugin
 Primary Branch: main
 */
 
