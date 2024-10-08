@@ -3,7 +3,7 @@
 Plugin Name: Font Discovery Plugin
 Plugin URI: https://github.com/ediblesites/font-checker-plugin
 Description: Discovers fonts used on a given website and stores the information, with detailed logging.
-Version: 1.8
+Version: 1.9
 Author: Edible Sites
 Author URI: https://ediblesites.com
 License: GPL-2.0+
